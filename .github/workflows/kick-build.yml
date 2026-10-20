@@ -1,0 +1,48 @@
+name: Kick debug build
+
+# Put this file at .github/workflows/kick-build.yml in YOUR FORK.
+# Runs on every push to any branch except master, and manually from the Actions tab.
+on:
+  push:
+    branches-ignore: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: 'basic'
+
+      - name: Build debug APK
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --console=plain 2>&1 | tee build.log
+
+      - name: Short error summary (shown on the run page)
+        if: failure()
+        run: |
+          {
+            echo '### Compile errors (copy this into AI Studio)'
+            echo '```'
+            grep -E '^e: |^e: file:|error:|What went wrong' -A3 build.log | head -120
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xtra-kick-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
